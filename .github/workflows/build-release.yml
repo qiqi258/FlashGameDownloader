@@ -1,0 +1,48 @@
+name: Build & Release FlashGameDownloader
+
+on:
+  # 两种触发方式：打tag自动构建，或者手动点Run workflow
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: # 手动运行，推荐你用这个，点一下就打包发布
+
+permissions:
+  contents: write # 必须，用来创建Release上传附件
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyqt5 requests pyinstaller
+
+      - name: Build EXE with PyInstaller
+        run: |
+          pyinstaller --onefile --windowed --name FlashGameDownloader main.py
+        # --onefile 单exe；--windowed 隐藏控制台（PyQt GUI程序）
+        # 如果程序依赖静态资源（ruffle播放器等），需要加 --add-data 参数，后面我说明
+
+      - name: Zip artifact
+        run: |
+          Compress-Archive -Path dist/FlashGameDownloader.exe -DestinationPath FlashGameDownloader-Win.zip
+
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: FlashGameDownloader-Win.zip
+          generate_release_notes: true
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
