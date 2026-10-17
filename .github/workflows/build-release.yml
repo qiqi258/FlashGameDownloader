@@ -18,7 +18,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ===== 新增：手动触发时自动生成版本号tag =====
       - name: Generate version tag
         id: genver
         if: github.event_name == 'workflow_dispatch'
@@ -44,9 +43,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyqt5 requests pyinstaller
 
+      # 新增：列出目录，看仓库里到底有哪些文件夹（调试用）
+      - name: List project files
+        run: ls
+
       - name: Build EXE with PyInstaller
         run: |
-          pyinstaller --onefile --windowed --name FlashGameDownloader --add-data "assets;assets" main.py
+          pyinstaller --onefile --windowed --name FlashGameDownloader main.py
 
       - name: Zip artifact
         run: |
