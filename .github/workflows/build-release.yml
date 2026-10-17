@@ -1,14 +1,13 @@
 name: Build & Release FlashGameDownloader
 
 on:
-  # 两种触发方式：打tag自动构建，或者手动点Run workflow
   push:
     tags:
       - 'v*'
-  workflow_dispatch: # 手动运行，推荐你用这个，点一下就打包发布
+  workflow_dispatch:
 
 permissions:
-  contents: write # 必须，用来创建Release上传附件
+  contents: write
 
 jobs:
   build-windows:
@@ -16,6 +15,24 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ===== 新增：手动触发时自动生成版本号tag =====
+      - name: Generate version tag
+        id: genver
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          $timestamp = Get-Date -Format "yyyyMMddHHmm"
+          echo "TAG=v${timestamp}" >> $env:GITHUB_OUTPUT
+      - name: Set tag name
+        id: setver
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch"){
+            echo "VERSION=${{ steps.genver.outputs.TAG }}" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "VERSION=${{ github.ref_name }}" >> $env:GITHUB_OUTPUT
+          }
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -29,20 +46,19 @@ jobs:
 
       - name: Build EXE with PyInstaller
         run: |
-          pyinstaller --onefile --windowed --name FlashGameDownloader main.py
-        # --onefile 单exe；--windowed 隐藏控制台（PyQt GUI程序）
-        # 如果程序依赖静态资源（ruffle播放器等），需要加 --add-data 参数，后面我说明
+          pyinstaller --onefile --windowed --name FlashGameDownloader --add-data "assets;assets" main.py
 
       - name: Zip artifact
         run: |
           Compress-Archive -Path dist/FlashGameDownloader.exe -DestinationPath FlashGameDownloader-Win.zip
 
-      - name: Upload Release Asset
-        id: upload-release-asset
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.setver.outputs.VERSION }}
           files: FlashGameDownloader-Win.zip
           generate_release_notes: true
           draft: false
+          overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
